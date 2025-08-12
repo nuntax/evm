@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - [deps] Bump revm 28.0.0, msrv 1.88 required for revm ([#152](https://github.com/alloy-rs/evm/issues/152))
 
+### Miscellaneous Tasks
+
+- Release 0.18.0
+
 ## [0.17.0](https://github.com/alloy-rs/evm/releases/tag/v0.17.0) - 2025-08-05
 
 ### Features
