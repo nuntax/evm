@@ -5,11 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.3](https://github.com/alloy-rs/evm/releases/tag/v0.18.3) - 2025-08-15
+
+### Miscellaneous Tasks
+
+- Update `EvmInternals::new()` to pub ([#156](https://github.com/alloy-rs/evm/issues/156))
+
 ## [0.18.2](https://github.com/alloy-rs/evm/releases/tag/v0.18.2) - 2025-08-15
 
 ### Features
 
 - Add map_pure_precompiles to respect pure precompiles for caching ([#153](https://github.com/alloy-rs/evm/issues/153))
+
+### Miscellaneous Tasks
+
+- Release 0.18.2
 
 ## [0.18.1](https://github.com/alloy-rs/evm/releases/tag/v0.18.1) - 2025-08-12
 
