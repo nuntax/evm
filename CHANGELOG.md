@@ -5,10 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.4](https://github.com/alloy-rs/evm/releases/tag/v0.18.4) - 2025-08-23
+
+### Features
+
+- [eth] Introduce EthEvmBuilder for unified EthEvm instance creation ([#155](https://github.com/alloy-rs/evm/issues/155))
+
 ## [0.18.3](https://github.com/alloy-rs/evm/releases/tag/v0.18.3) - 2025-08-15
 
 ### Miscellaneous Tasks
 
+- Release 0.18.3
 - Update `EvmInternals::new()` to pub ([#156](https://github.com/alloy-rs/evm/issues/156))
 
 ## [0.18.2](https://github.com/alloy-rs/evm/releases/tag/v0.18.2) - 2025-08-15
