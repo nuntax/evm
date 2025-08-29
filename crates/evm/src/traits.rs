@@ -5,7 +5,7 @@ use alloc::boxed::Box;
 use alloy_primitives::{Address, Bytes, Log, TxKind, B256, U256};
 use core::{error::Error, fmt, fmt::Debug};
 use revm::{
-    context::{Block, DBErrorMarker, JournalTr, Transaction},
+    context::{result::InvalidTransaction, Block, DBErrorMarker, JournalTr, Transaction},
     interpreter::{SStoreResult, StateLoad},
     primitives::{StorageKey, StorageValue},
     state::{Account, AccountInfo, Bytecode},
@@ -117,6 +117,39 @@ pub trait TransactionTr {
     ///
     /// Transaction is considered invalid if list is empty.
     fn authorization_list_len(&self) -> usize;
+
+    /// Returns maximum fee that can be paid for the transaction.
+    fn max_fee_per_gas(&self) -> u128;
+
+    /// Maximum priority fee per gas.
+    fn max_priority_fee_per_gas(&self) -> Option<u128>;
+
+    /// Returns effective gas price is gas price field for Legacy and Eip2930 transaction.
+    ///
+    /// While for transactions after Eip1559 it is minimum of max_fee and `base + max_priority_fee`.
+    fn effective_gas_price(&self, base_fee: u128) -> u128;
+
+    /// Returns the maximum balance that can be spent by the transaction.
+    ///
+    /// Return U256 or error if all values overflow U256 number.
+    fn max_balance_spending(&self) -> Result<U256, InvalidTransaction>;
+
+    /// Returns the effective balance that is going to be spent that depends on base_fee
+    /// Multiplication for gas are done in u128 type (saturated) and value is added as U256 type.
+    ///
+    /// # Reason
+    ///
+    /// This is done for performance reasons and it is known to be safe as there is no more that
+    /// u128::MAX value of eth in existence.
+    ///
+    /// This is always strictly less than [`Self::max_balance_spending`].
+    ///
+    /// Return U256 or error if all values overflow U256 number.
+    fn effective_balance_spending(
+        &self,
+        base_fee: u128,
+        blob_price: u128,
+    ) -> Result<U256, InvalidTransaction>;
 }
 /// Helper internal struct for implementing [`TransactionTr`].
 struct TransactionImpl<'a, T>(pub &'a mut T);
@@ -167,6 +200,30 @@ where
     }
     fn authorization_list_len(&self) -> usize {
         self.0.authorization_list_len()
+    }
+
+    fn max_fee_per_gas(&self) -> u128 {
+        self.0.max_fee_per_gas()
+    }
+
+    fn max_priority_fee_per_gas(&self) -> Option<u128> {
+        self.0.max_priority_fee_per_gas()
+    }
+
+    fn effective_gas_price(&self, base_fee: u128) -> u128 {
+        self.0.effective_gas_price(base_fee)
+    }
+
+    fn max_balance_spending(&self) -> Result<U256, InvalidTransaction> {
+        self.0.max_balance_spending()
+    }
+
+    fn effective_balance_spending(
+        &self,
+        base_fee: u128,
+        blob_price: u128,
+    ) -> Result<U256, InvalidTransaction> {
+        self.0.effective_balance_spending(base_fee, blob_price)
     }
 }
 
