@@ -152,7 +152,7 @@ pub trait TransactionTr {
     ) -> Result<U256, InvalidTransaction>;
 }
 /// Helper internal struct for implementing [`TransactionTr`].
-struct TransactionImpl<'a, T>(pub &'a mut T);
+struct TransactionImpl<'a, T>(pub &'a T);
 
 impl<T> TransactionTr for TransactionImpl<'_, T>
 where
@@ -350,7 +350,7 @@ pub struct EvmInternals<'a> {
 
 impl<'a> EvmInternals<'a> {
     /// Creates a new [`EvmInternals`] instance.
-    pub fn new<T, TX>(journal: &'a mut T, block_env: &'a dyn Block, tx_env: &'a mut TX) -> Self
+    pub fn new<T, TX>(journal: &'a mut T, block_env: &'a dyn Block, tx_env: &'a TX) -> Self
     where
         T: JournalTr<Database: Database> + Debug,
         TX: Transaction,
@@ -368,8 +368,8 @@ impl<'a> EvmInternals<'a> {
     }
 
     /// Returns the evm's transaction information.
-    pub fn tx_env(&mut self) -> &mut dyn TransactionTr {
-        &mut *self.tx_env
+    pub fn tx_env(&self) -> &dyn TransactionTr {
+        &*self.tx_env
     }
 
     /// Returns the current block number.
