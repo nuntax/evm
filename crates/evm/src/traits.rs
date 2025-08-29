@@ -367,6 +367,11 @@ impl<'a> EvmInternals<'a> {
         self.block_env
     }
 
+    /// Returns the evm's transaction information.
+    pub fn tx_env(&mut self) -> &mut dyn TransactionTr {
+        &mut *self.tx_env
+    }
+
     /// Returns the current block number.
     pub fn block_number(&self) -> U256 {
         self.block_env.number()
