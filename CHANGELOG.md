@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.1](https://github.com/alloy-rs/evm/releases/tag/v0.21.1) - 2025-09-17
+
+### Features
+
+- Add `EthereumHardforks` => `SpecId` and `OpHardforks` => `OpSpecId` mapping ([#174](https://github.com/alloy-rs/evm/issues/174))
+- Add `BlockValidationError::Other` ([#176](https://github.com/alloy-rs/evm/issues/176))
+
 ## [0.21.0](https://github.com/alloy-rs/evm/releases/tag/v0.21.0) - 2025-09-12
 
 ### Dependencies
@@ -18,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Miscellaneous Tasks
 
+- Release 0.21.0
 - `missing-const-for-fn` lint back to "warn". ([#167](https://github.com/alloy-rs/evm/issues/167))
 
 ### Other
