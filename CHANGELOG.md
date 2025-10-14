@@ -5,11 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.22.3](https://github.com/alloy-rs/evm/releases/tag/v0.22.3) - 2025-10-14
+
+### Dependencies
+
+- Bump op-alloy 0.21 ([#198](https://github.com/alloy-rs/evm/issues/198))
+
 ## [0.22.2](https://github.com/alloy-rs/evm/releases/tag/v0.22.2) - 2025-10-14
 
 ### Bug Fixes
 
 - Correctly fetch precompiles ([#197](https://github.com/alloy-rs/evm/issues/197))
+
+### Miscellaneous Tasks
+
+- Release 0.22.2
 
 ## [0.22.1](https://github.com/alloy-rs/evm/releases/tag/v0.22.1) - 2025-10-14
 
@@ -280,6 +290,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.12.2](https://github.com/alloy-rs/evm/releases/tag/v0.12.2) - 2025-06-23
 
+### Bug Fixes
+
+- Fix compilation
+
 ### Documentation
 
 - Fix typo in tracing.rs comment ([#113](https://github.com/alloy-rs/evm/issues/113))
@@ -293,15 +307,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Release 0.12.2
 - Derive Copy for `PrecompileInput` ([#110](https://github.com/alloy-rs/evm/issues/110))
-
-## [0.12.1](https://github.com/alloy-rs/evm/releases/tag/v0.12.1) - 2025-06-20
-
-### Bug Fixes
-
-- Fix compilation
-
-### Miscellaneous Tasks
-
 - Release 0.12.1
 
 ## [0.12.0](https://github.com/alloy-rs/evm/releases/tag/v0.12.0) - 2025-06-20
