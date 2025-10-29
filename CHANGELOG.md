@@ -5,11 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.22.6](https://github.com/alloy-rs/evm/releases/tag/v0.22.6) - 2025-10-29
+
+### Dependencies
+
+- Bump op-alloy 0.22 ([#206](https://github.com/alloy-rs/evm/issues/206))
+- [deps] Update `alloy-hardforks` deps with the new Jovian timestamps ([#205](https://github.com/alloy-rs/evm/issues/205))
+- [jovian/timestamps] Update `alloy-hardforks` dep ([#203](https://github.com/alloy-rs/evm/issues/203))
+
+### Features
+
+- [precompiles/jovian] Add jovian precompiles to `alloy-evm` ([#204](https://github.com/alloy-rs/evm/issues/204))
+
 ## [0.22.5](https://github.com/alloy-rs/evm/releases/tag/v0.22.5) - 2025-10-23
 
 ### Bug Fixes
 
 - Blob fee calc ([#202](https://github.com/alloy-rs/evm/issues/202))
+
+### Miscellaneous Tasks
+
+- Release 0.22.5
 
 ## [0.22.4](https://github.com/alloy-rs/evm/releases/tag/v0.22.4) - 2025-10-22
 
@@ -311,6 +327,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.12.2](https://github.com/alloy-rs/evm/releases/tag/v0.12.2) - 2025-06-23
 
+### Bug Fixes
+
+- Fix compilation
+
 ### Documentation
 
 - Fix typo in tracing.rs comment ([#113](https://github.com/alloy-rs/evm/issues/113))
@@ -324,15 +344,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Release 0.12.2
 - Derive Copy for `PrecompileInput` ([#110](https://github.com/alloy-rs/evm/issues/110))
-
-## [0.12.1](https://github.com/alloy-rs/evm/releases/tag/v0.12.1) - 2025-06-20
-
-### Bug Fixes
-
-- Fix compilation
-
-### Miscellaneous Tasks
-
 - Release 0.12.1
 
 ## [0.12.0](https://github.com/alloy-rs/evm/releases/tag/v0.12.0) - 2025-06-20
