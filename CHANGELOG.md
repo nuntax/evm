@@ -5,11 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.23.2](https://github.com/alloy-rs/evm/releases/tag/v0.23.2) - 2025-11-06
+
+### Features
+
+- [evm] Add specializations for `Signed` types for `OpTransaction<TxEnv>` ([#209](https://github.com/alloy-rs/evm/issues/209))
+- Add transient storage helpers to `EvmInternals` ([#216](https://github.com/alloy-rs/evm/issues/216))
+
 ## [0.23.1](https://github.com/alloy-rs/evm/releases/tag/v0.23.1) - 2025-11-05
 
 ### Features
 
 - Add additional internals fns ([#214](https://github.com/alloy-rs/evm/issues/214))
+
+### Miscellaneous Tasks
+
+- Release 0.23.1
 
 ## [0.23.0](https://github.com/alloy-rs/evm/releases/tag/v0.23.0) - 2025-11-03
 
