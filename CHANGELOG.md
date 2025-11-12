@@ -5,12 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.24.0](https://github.com/alloy-rs/evm/releases/tag/v0.24.0) - 2025-11-12
+
+### Bug Fixes
+
+- Cleanup op features ([#224](https://github.com/alloy-rs/evm/issues/224))
+
+### Dependencies
+
+- Bump revm v32.0.0 ([#223](https://github.com/alloy-rs/evm/issues/223))
+- Bump revm v30.0.2 ([#222](https://github.com/alloy-rs/evm/issues/222))
+
+### Features
+
+- Bumps nonce of account ([#221](https://github.com/alloy-rs/evm/issues/221))
+- [evm] Moving rpc conversion traits from Reth ([#220](https://github.com/alloy-rs/evm/issues/220))
+- [evm] Add specializations for `Signed` types for `TxEnv`  ([#218](https://github.com/alloy-rs/evm/issues/218))
+
 ## [0.23.2](https://github.com/alloy-rs/evm/releases/tag/v0.23.2) - 2025-11-06
 
 ### Features
 
 - [evm] Add specializations for `Signed` types for `OpTransaction<TxEnv>` ([#209](https://github.com/alloy-rs/evm/issues/209))
 - Add transient storage helpers to `EvmInternals` ([#216](https://github.com/alloy-rs/evm/issues/216))
+
+### Miscellaneous Tasks
+
+- Release 0.23.2
 
 ## [0.23.1](https://github.com/alloy-rs/evm/releases/tag/v0.23.1) - 2025-11-05
 
@@ -363,10 +384,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.12.2](https://github.com/alloy-rs/evm/releases/tag/v0.12.2) - 2025-06-23
 
-### Bug Fixes
-
-- Fix compilation
-
 ### Documentation
 
 - Fix typo in tracing.rs comment ([#113](https://github.com/alloy-rs/evm/issues/113))
@@ -380,6 +397,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Release 0.12.2
 - Derive Copy for `PrecompileInput` ([#110](https://github.com/alloy-rs/evm/issues/110))
+
+## [0.12.1](https://github.com/alloy-rs/evm/releases/tag/v0.12.1) - 2025-06-20
+
+### Bug Fixes
+
+- Fix compilation
+
+### Miscellaneous Tasks
+
 - Release 0.12.1
 
 ## [0.12.0](https://github.com/alloy-rs/evm/releases/tag/v0.12.0) - 2025-06-20
