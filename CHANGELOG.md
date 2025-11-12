@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.24.1](https://github.com/alloy-rs/evm/releases/tag/v0.24.1) - 2025-11-12
+
+### Dependencies
+
+- Bump to revm 33 ([#226](https://github.com/alloy-rs/evm/issues/226))
+
 ## [0.24.0](https://github.com/alloy-rs/evm/releases/tag/v0.24.0) - 2025-11-12
 
 ### Bug Fixes
@@ -21,6 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bumps nonce of account ([#221](https://github.com/alloy-rs/evm/issues/221))
 - [evm] Moving rpc conversion traits from Reth ([#220](https://github.com/alloy-rs/evm/issues/220))
 - [evm] Add specializations for `Signed` types for `TxEnv`  ([#218](https://github.com/alloy-rs/evm/issues/218))
+
+### Miscellaneous Tasks
+
+- Release 0.24.0
 
 ## [0.23.2](https://github.com/alloy-rs/evm/releases/tag/v0.23.2) - 2025-11-06
 
