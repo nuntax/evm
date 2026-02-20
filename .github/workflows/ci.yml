@@ -24,7 +24,7 @@ jobs:
         rust:
           - "stable"
           - "nightly"
-          - "1.88" # MSRV
+          - "1.91" # MSRV
         flags:
           # No features
           - "--no-default-features"
@@ -34,8 +34,19 @@ jobs:
           - "--all-features"
         exclude:
           # All features on MSRV
-          - rust: "1.88" # MSRV
+          - rust: "1.91" # MSRV
             flags: "--all-features"
+          # gmp doesn't compile on Windows
+          - os: windows-latest
+            flags: "--all-features"
+        include:
+          # Windows: all features except gmp
+          - os: windows-latest
+            rust: stable
+            flags: "--features std,secp256k1,op,overrides,call-util,engine,asm-keccak,rpc"
+          - os: windows-latest
+            rust: nightly
+            flags: "--features std,secp256k1,op,overrides,call-util,engine,asm-keccak,rpc"
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@master
@@ -46,14 +57,14 @@ jobs:
           cache-on-failure: true
       # Only run tests on latest stable and above
       - name: Install cargo-nextest
-        if: ${{ matrix.rust != '1.88' }} # MSRV
+        if: ${{ matrix.rust != '1.91' }} # MSRV
         uses: taiki-e/install-action@nextest
       - name: build
-        if: ${{ matrix.rust == '1.88' }} # MSRV
+        if: ${{ matrix.rust == '1.91' }} # MSRV
         run: cargo build --workspace ${{ matrix.flags }}
       - name: test
         shell: bash
-        if: ${{ matrix.rust != '1.88' }} # MSRV
+        if: ${{ matrix.rust != '1.91' }} # MSRV
         run: cargo nextest run --workspace ${{ matrix.flags }}
 
   doctest:
@@ -169,7 +180,7 @@ jobs:
       - run: cargo fmt --all --check
 
   deny:
-    uses: ithacaxyz/ci/.github/workflows/deny.yml@main
+    uses: tempoxyz/ci/.github/workflows/deny.yml@main
 
   ci-success:
     name: ci success

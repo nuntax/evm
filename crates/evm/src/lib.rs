@@ -15,7 +15,7 @@ pub use evm::{Database, Evm, EvmFactory};
 pub mod eth;
 pub use eth::{EthEvm, EthEvmFactory};
 pub mod env;
-pub use env::EvmEnv;
+pub use env::{EvmEnv, EvmLimitParams};
 pub mod error;
 pub use error::*;
 pub mod tx;
@@ -29,6 +29,8 @@ pub mod op;
 #[cfg(feature = "overrides")]
 pub mod overrides;
 pub mod precompiles;
+#[cfg(feature = "rpc")]
+pub mod rpc;
 pub mod tracing;
 
 mod either;

@@ -46,7 +46,7 @@ impl EvmEnv<OpSpecId> {
         chain_id: ChainId,
     ) -> Self {
         Self::for_op(
-            EvmEnvInput::from_parent_header(header, attributes, base_fee_per_gas),
+            EvmEnvInput::for_next(header, attributes, base_fee_per_gas, None),
             chain_spec,
             chain_id,
         )
@@ -54,7 +54,7 @@ impl EvmEnv<OpSpecId> {
 
     fn for_op(input: EvmEnvInput, chain_spec: impl OpHardforks, chain_id: ChainId) -> Self {
         let spec = crate::op::spec_by_timestamp_after_bedrock(&chain_spec, input.timestamp);
-        let cfg_env = CfgEnv::new().with_chain_id(chain_id).with_spec(spec);
+        let cfg_env = CfgEnv::new().with_chain_id(chain_id).with_spec_and_mainnet_gas_params(spec);
 
         let blob_excess_gas_and_price = spec
             .into_eth_spec()
@@ -64,7 +64,7 @@ impl EvmEnv<OpSpecId> {
         let is_merge_active = spec.into_eth_spec() >= SpecId::MERGE;
 
         let block_env = BlockEnv {
-            number: U256::from(input.height),
+            number: U256::from(input.number),
             beneficiary: input.beneficiary,
             timestamp: U256::from(input.timestamp),
             difficulty: if is_merge_active { U256::ZERO } else { input.difficulty },
@@ -79,10 +79,10 @@ impl EvmEnv<OpSpecId> {
     }
 }
 
-#[cfg(feature = "op-engine")]
+#[cfg(feature = "engine")]
 mod payload {
     use super::*;
-    use op_alloy_rpc_types_engine::OpExecutionPayload;
+    use op_alloy::rpc_types_engine::OpExecutionPayload;
 
     impl EvmEnv<OpSpecId> {
         /// Create a new `EvmEnv` with [`OpSpecId`] from a `payload`, `chain_id`, `chain_spec` and
@@ -107,14 +107,13 @@ mod payload {
         pub(crate) fn from_op_payload(payload: &OpExecutionPayload) -> Self {
             Self {
                 timestamp: payload.timestamp(),
-                height: payload.block_number(),
+                number: payload.block_number(),
                 beneficiary: payload.as_v1().fee_recipient,
                 mix_hash: Some(payload.as_v1().prev_randao),
                 difficulty: payload.as_v1().prev_randao.into(),
                 gas_limit: payload.as_v1().gas_limit,
                 excess_blob_gas: payload.as_v3().map(|v| v.excess_blob_gas),
                 base_fee_per_gas: payload.as_v1().base_fee_per_gas.saturating_to(),
-                blob_gas_used: None,
             }
         }
     }
