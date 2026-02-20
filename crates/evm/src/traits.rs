@@ -7,7 +7,12 @@ use core::{error::Error, fmt, fmt::Debug};
 use revm::{
     context::{
         journaled_state::{account::JournaledAccountTr, TransferError},
-        Block, Cfg, ContextTr, DBErrorMarker, JournalTr, Transaction,
+        tx::TxEnvBuilder,
+        Block, Cfg, ContextTr, DBErrorMarker, JournalTr, Transaction, TxEnv,
+    },
+    context_interface::transaction::{
+        AccessList, AccessListItem, AccessListItemTr, Authorization, AuthorizationTr,
+        RecoveredAuthority, RecoveredAuthorization,
     },
     interpreter::{SStoreResult, StateLoad},
     primitives::{StorageKey, StorageValue},
@@ -240,12 +245,64 @@ where
     }
 }
 
+/// Creates a snapshot in the form of a TxEnv for types implementing Transaction
+fn snapshot_tx_env<T: Transaction + ?Sized>(tx: &T) -> TxEnv {
+    let access_list = tx
+        .access_list()
+        .map(|list| {
+            AccessList(
+                list.map(|item| AccessListItem {
+                    address: *item.address(),
+                    storage_keys: item.storage_slots().copied().collect(),
+                })
+                .collect(),
+            )
+        })
+        .unwrap_or_default();
+
+    let authorization_list = tx
+        .authorization_list()
+        .map(|authorization| {
+            let authority = authorization
+                .authority()
+                .map(RecoveredAuthority::Valid)
+                .unwrap_or(RecoveredAuthority::Invalid);
+            RecoveredAuthorization::new_unchecked(
+                Authorization {
+                    chain_id: authorization.chain_id(),
+                    address: authorization.address(),
+                    nonce: authorization.nonce(),
+                },
+                authority,
+            )
+        })
+        .collect();
+
+    TxEnvBuilder::new()
+        .tx_type(Some(tx.tx_type()))
+        .caller(tx.caller())
+        .gas_limit(tx.gas_limit())
+        .gas_price(tx.gas_price())
+        .kind(tx.kind())
+        .value(tx.value())
+        .data(tx.input().clone())
+        .nonce(tx.nonce())
+        .chain_id(tx.chain_id())
+        .access_list(access_list)
+        .gas_priority_fee(tx.max_priority_fee_per_gas())
+        .blob_hashes(tx.blob_versioned_hashes().to_vec())
+        .max_fee_per_blob_gas(tx.max_fee_per_blob_gas())
+        .authorization_list_recovered(authorization_list)
+        .build_fill()
+}
+
 /// Helper type exposing hooks into EVM and access to evm internal settings.
 pub struct EvmInternals<'a> {
     internals: Box<dyn EvmInternalsTr + 'a>,
     block_env: &'a (dyn Block + 'a),
     chain_id: u64,
     tx_origin: Address,
+    tx_env: TxEnv,
 }
 
 impl<'a> EvmInternals<'a> {
@@ -259,11 +316,13 @@ impl<'a> EvmInternals<'a> {
     where
         T: JournalTr<Database: Database> + Debug,
     {
+        let tx_env = snapshot_tx_env(tx_env);
         Self {
             internals: Box::new(EvmInternalsImpl(journal)),
             block_env,
             chain_id: cfg_env.chain_id(),
-            tx_origin: tx_env.caller(),
+            tx_origin: tx_env.caller,
+            tx_env,
         }
     }
 
@@ -301,6 +360,11 @@ impl<'a> EvmInternals<'a> {
     /// Note that this might be different from the caller of the specific precompile call.
     pub const fn tx_origin(&self) -> Address {
         self.tx_origin
+    }
+
+    /// Returns the converted transaction environment snapshot.
+    pub const fn tx_env(&self) -> &TxEnv {
+        &self.tx_env
     }
 
     /// Returns a mutable reference to [`Database`] implementation with erased error type.
