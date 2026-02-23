@@ -2,17 +2,13 @@
 
 use crate::Database;
 use alloc::boxed::Box;
-use alloy_primitives::{Address, Log, B256, U256};
+use alloy_primitives::{Address, Bytes, Log, TxKind, B256, U256};
 use core::{error::Error, fmt, fmt::Debug};
 use revm::{
     context::{
         journaled_state::{account::JournaledAccountTr, TransferError},
-        tx::TxEnvBuilder,
-        Block, Cfg, ContextTr, DBErrorMarker, JournalTr, Transaction, TxEnv,
-    },
-    context_interface::transaction::{
-        AccessList, AccessListItem, AccessListItemTr, Authorization, AuthorizationTr,
-        RecoveredAuthority, RecoveredAuthorization,
+        result::InvalidTransaction,
+        Block, Cfg, ContextTr, DBErrorMarker, JournalTr, Transaction,
     },
     interpreter::{SStoreResult, StateLoad},
     primitives::{StorageKey, StorageValue},
@@ -45,6 +41,203 @@ impl EvmInternalsError {
     /// Creates a new [`EvmInternalsError::Database`]
     pub fn database(err: impl Error + Send + Sync + 'static) -> Self {
         Self::Database(ErasedError::new(err))
+    }
+}
+
+/// dyn-compatible trait for accessing transaction fields.
+pub trait TransactionTr {
+    /// Returns the transaction type.
+    ///
+    /// Depending on this field other functions should be called.
+    fn tx_type(&self) -> u8;
+
+    /// Caller aka Author aka transaction signer.
+    ///
+    /// Note : Common field for all transactions.
+    fn caller(&self) -> Address;
+
+    /// The maximum amount of gas the transaction can use.
+    ///
+    /// Note : Common field for all transactions.
+    fn gas_limit(&self) -> u64;
+
+    /// The value sent to the receiver of [`TxKind::Call`].
+    ///
+    /// Note : Common field for all transactions.
+    fn value(&self) -> U256;
+
+    /// Returns the input data of the transaction.
+    ///
+    /// Note : Common field for all transactions.
+    fn input(&self) -> &Bytes;
+
+    /// The nonce of the transaction.
+    ///
+    /// Note : Common field for all transactions.
+    fn nonce(&self) -> u64;
+
+    /// Transaction kind. It can be Call or Create.
+    ///
+    /// Kind is applicable for: Legacy, EIP-2930, EIP-1559
+    /// And is Call for EIP-4844 and EIP-7702 transactions.
+    fn kind(&self) -> TxKind;
+
+    /// Chain Id is optional for legacy transactions.
+    ///
+    /// As it was introduced in EIP-155.
+    fn chain_id(&self) -> Option<u64>;
+
+    /// Gas price for the transaction.
+    /// It is only applicable for Legacy and EIP-2930 transactions.
+    /// For Eip1559 it is max_fee_per_gas.
+    fn gas_price(&self) -> u128;
+
+    /// Returns vector of fixed size hash(32 bytes)
+    ///
+    /// Note : EIP-4844 transaction field.
+    fn blob_versioned_hashes(&self) -> &[B256];
+
+    /// Max fee per data gas
+    ///
+    /// Note : EIP-4844 transaction field.
+    fn max_fee_per_blob_gas(&self) -> u128;
+
+    /// Total gas for all blobs. Max number of blocks is already checked
+    /// so we dont need to check for overflow.
+    fn total_blob_gas(&self) -> u64;
+
+    /// Calculates the maximum [EIP-4844] `data_fee` of the transaction.
+    ///
+    /// This is used for ensuring that the user has at least enough funds to pay the
+    /// `max_fee_per_blob_gas * total_blob_gas`, on top of regular gas costs.
+    ///
+    /// See EIP-4844:
+    /// <https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4844.md#execution-layer-validation>
+    fn calc_max_data_fee(&self) -> U256;
+
+    /// Returns length of the authorization list.
+    ///
+    /// # Note
+    ///
+    /// Transaction is considered invalid if list is empty.
+    fn authorization_list_len(&self) -> usize;
+
+    /// Returns maximum fee that can be paid for the transaction.
+    fn max_fee_per_gas(&self) -> u128;
+
+    /// Maximum priority fee per gas.
+    fn max_priority_fee_per_gas(&self) -> Option<u128>;
+
+    /// Returns effective gas price is gas price field for Legacy and Eip2930 transaction.
+    ///
+    /// While for transactions after Eip1559 it is minimum of max_fee and `base + max_priority_fee`.
+    fn effective_gas_price(&self, base_fee: u128) -> u128;
+
+    /// Returns the maximum balance that can be spent by the transaction.
+    ///
+    /// Return U256 or error if all values overflow U256 number.
+    fn max_balance_spending(&self) -> Result<U256, InvalidTransaction>;
+
+    /// Returns the effective balance that is going to be spent that depends on base_fee
+    /// Multiplication for gas are done in u128 type (saturated) and value is added as U256 type.
+    ///
+    /// # Reason
+    ///
+    /// This is done for performance reasons and it is known to be safe as there is no more that
+    /// u128::MAX value of eth in existence.
+    ///
+    /// This is always strictly less than [`Self::max_balance_spending`].
+    ///
+    /// Return U256 or error if all values overflow U256 number.
+    fn effective_balance_spending(
+        &self,
+        base_fee: u128,
+        blob_price: u128,
+    ) -> Result<U256, InvalidTransaction>;
+}
+
+impl<T> TransactionTr for T
+where
+    T: Transaction,
+{
+    fn tx_type(&self) -> u8 {
+        Transaction::tx_type(self)
+    }
+
+    fn caller(&self) -> Address {
+        Transaction::caller(self)
+    }
+
+    fn gas_limit(&self) -> u64 {
+        Transaction::gas_limit(self)
+    }
+
+    fn value(&self) -> U256 {
+        Transaction::value(self)
+    }
+
+    fn input(&self) -> &Bytes {
+        Transaction::input(self)
+    }
+
+    fn nonce(&self) -> u64 {
+        Transaction::nonce(self)
+    }
+
+    fn kind(&self) -> TxKind {
+        Transaction::kind(self)
+    }
+
+    fn chain_id(&self) -> Option<u64> {
+        Transaction::chain_id(self)
+    }
+
+    fn gas_price(&self) -> u128 {
+        Transaction::gas_price(self)
+    }
+
+    fn blob_versioned_hashes(&self) -> &[B256] {
+        Transaction::blob_versioned_hashes(self)
+    }
+
+    fn max_fee_per_blob_gas(&self) -> u128 {
+        Transaction::max_fee_per_blob_gas(self)
+    }
+
+    fn total_blob_gas(&self) -> u64 {
+        Transaction::total_blob_gas(self)
+    }
+
+    fn calc_max_data_fee(&self) -> U256 {
+        Transaction::calc_max_data_fee(self)
+    }
+
+    fn authorization_list_len(&self) -> usize {
+        Transaction::authorization_list_len(self)
+    }
+
+    fn max_fee_per_gas(&self) -> u128 {
+        Transaction::max_fee_per_gas(self)
+    }
+
+    fn max_priority_fee_per_gas(&self) -> Option<u128> {
+        Transaction::max_priority_fee_per_gas(self)
+    }
+
+    fn effective_gas_price(&self, base_fee: u128) -> u128 {
+        Transaction::effective_gas_price(self, base_fee)
+    }
+
+    fn max_balance_spending(&self) -> Result<U256, InvalidTransaction> {
+        Transaction::max_balance_spending(self)
+    }
+
+    fn effective_balance_spending(
+        &self,
+        base_fee: u128,
+        blob_price: u128,
+    ) -> Result<U256, InvalidTransaction> {
+        Transaction::effective_balance_spending(self, base_fee, blob_price)
     }
 }
 
@@ -245,83 +438,32 @@ where
     }
 }
 
-/// Creates a snapshot in the form of a TxEnv for types implementing Transaction
-fn snapshot_tx_env<T: Transaction + ?Sized>(tx: &T) -> TxEnv {
-    let access_list = tx
-        .access_list()
-        .map(|list| {
-            AccessList(
-                list.map(|item| AccessListItem {
-                    address: *item.address(),
-                    storage_keys: item.storage_slots().copied().collect(),
-                })
-                .collect(),
-            )
-        })
-        .unwrap_or_default();
-
-    let authorization_list = tx
-        .authorization_list()
-        .map(|authorization| {
-            let authority = authorization
-                .authority()
-                .map(RecoveredAuthority::Valid)
-                .unwrap_or(RecoveredAuthority::Invalid);
-            RecoveredAuthorization::new_unchecked(
-                Authorization {
-                    chain_id: authorization.chain_id(),
-                    address: authorization.address(),
-                    nonce: authorization.nonce(),
-                },
-                authority,
-            )
-        })
-        .collect();
-
-    TxEnvBuilder::new()
-        .tx_type(Some(tx.tx_type()))
-        .caller(tx.caller())
-        .gas_limit(tx.gas_limit())
-        .gas_price(tx.gas_price())
-        .kind(tx.kind())
-        .value(tx.value())
-        .data(tx.input().clone())
-        .nonce(tx.nonce())
-        .chain_id(tx.chain_id())
-        .access_list(access_list)
-        .gas_priority_fee(tx.max_priority_fee_per_gas())
-        .blob_hashes(tx.blob_versioned_hashes().to_vec())
-        .max_fee_per_blob_gas(tx.max_fee_per_blob_gas())
-        .authorization_list_recovered(authorization_list)
-        .build_fill()
-}
-
 /// Helper type exposing hooks into EVM and access to evm internal settings.
 pub struct EvmInternals<'a> {
     internals: Box<dyn EvmInternalsTr + 'a>,
     block_env: &'a (dyn Block + 'a),
     chain_id: u64,
     tx_origin: Address,
-    tx_env: TxEnv,
+    tx_env: &'a dyn TransactionTr,
 }
 
 impl<'a> EvmInternals<'a> {
     /// Creates a new [`EvmInternals`] instance.
-    pub fn new<T>(
+    pub fn new<T, TX>(
         journal: &'a mut T,
         block_env: &'a dyn Block,
         cfg_env: &'a impl Cfg,
-        tx_env: &'a impl Transaction,
+        tx_env: &'a TX,
     ) -> Self
     where
         T: JournalTr<Database: Database> + Debug,
+        TX: Transaction,
     {
-        let tx_env = snapshot_tx_env(tx_env);
         Self {
             internals: Box::new(EvmInternalsImpl(journal)),
             block_env,
             chain_id: cfg_env.chain_id(),
-            tx_origin: tx_env.caller,
+            tx_origin: tx_env.caller(),
             tx_env,
         }
     }
@@ -362,9 +504,9 @@ impl<'a> EvmInternals<'a> {
         self.tx_origin
     }
 
-    /// Returns the converted transaction environment snapshot.
-    pub const fn tx_env(&self) -> &TxEnv {
-        &self.tx_env
+    /// Returns the current transaction information.
+    pub fn tx_env(&self) -> &dyn TransactionTr {
+        self.tx_env
     }
 
     /// Returns a mutable reference to [`Database`] implementation with erased error type.
