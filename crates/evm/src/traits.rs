@@ -8,7 +8,7 @@ use revm::{
     context::{
         journaled_state::{account::JournaledAccountTr, TransferError},
         result::InvalidTransaction,
-        Block, Cfg, ContextTr, DBErrorMarker, JournalTr, Transaction,
+        Block, Cfg, ContextTr, DBErrorMarker, JournalTr,
     },
     interpreter::{SStoreResult, StateLoad},
     primitives::{StorageKey, StorageValue},
@@ -44,7 +44,12 @@ impl EvmInternalsError {
     }
 }
 
-/// dyn-compatible trait for accessing transaction fields.
+/// Dyn-compatible wrapper around [`revm::context::Transaction`].
+///
+/// [`revm::context::Transaction`] is not dyn-compatible because of methods returning
+/// associated types (e.g. `access_list`, `authorization_list`). This trait mirrors
+/// the dyn-compatible subset of those methods, allowing transaction data to be
+/// accessed through `&dyn TransactionTr` in [`EvmInternals`].
 pub trait TransactionTr {
     /// Returns the transaction type.
     ///
@@ -158,78 +163,78 @@ pub trait TransactionTr {
 
 impl<T> TransactionTr for T
 where
-    T: Transaction,
+    T: revm::context::Transaction,
 {
     fn tx_type(&self) -> u8 {
-        Transaction::tx_type(self)
+        revm::context::Transaction::tx_type(self)
     }
 
     fn caller(&self) -> Address {
-        Transaction::caller(self)
+        revm::context::Transaction::caller(self)
     }
 
     fn gas_limit(&self) -> u64 {
-        Transaction::gas_limit(self)
+        revm::context::Transaction::gas_limit(self)
     }
 
     fn value(&self) -> U256 {
-        Transaction::value(self)
+        revm::context::Transaction::value(self)
     }
 
     fn input(&self) -> &Bytes {
-        Transaction::input(self)
+        revm::context::Transaction::input(self)
     }
 
     fn nonce(&self) -> u64 {
-        Transaction::nonce(self)
+        revm::context::Transaction::nonce(self)
     }
 
     fn kind(&self) -> TxKind {
-        Transaction::kind(self)
+        revm::context::Transaction::kind(self)
     }
 
     fn chain_id(&self) -> Option<u64> {
-        Transaction::chain_id(self)
+        revm::context::Transaction::chain_id(self)
     }
 
     fn gas_price(&self) -> u128 {
-        Transaction::gas_price(self)
+        revm::context::Transaction::gas_price(self)
     }
 
     fn blob_versioned_hashes(&self) -> &[B256] {
-        Transaction::blob_versioned_hashes(self)
+        revm::context::Transaction::blob_versioned_hashes(self)
     }
 
     fn max_fee_per_blob_gas(&self) -> u128 {
-        Transaction::max_fee_per_blob_gas(self)
+        revm::context::Transaction::max_fee_per_blob_gas(self)
     }
 
     fn total_blob_gas(&self) -> u64 {
-        Transaction::total_blob_gas(self)
+        revm::context::Transaction::total_blob_gas(self)
     }
 
     fn calc_max_data_fee(&self) -> U256 {
-        Transaction::calc_max_data_fee(self)
+        revm::context::Transaction::calc_max_data_fee(self)
     }
 
     fn authorization_list_len(&self) -> usize {
-        Transaction::authorization_list_len(self)
+        revm::context::Transaction::authorization_list_len(self)
     }
 
     fn max_fee_per_gas(&self) -> u128 {
-        Transaction::max_fee_per_gas(self)
+        revm::context::Transaction::max_fee_per_gas(self)
     }
 
     fn max_priority_fee_per_gas(&self) -> Option<u128> {
-        Transaction::max_priority_fee_per_gas(self)
+        revm::context::Transaction::max_priority_fee_per_gas(self)
     }
 
     fn effective_gas_price(&self, base_fee: u128) -> u128 {
-        Transaction::effective_gas_price(self, base_fee)
+        revm::context::Transaction::effective_gas_price(self, base_fee)
     }
 
     fn max_balance_spending(&self) -> Result<U256, InvalidTransaction> {
-        Transaction::max_balance_spending(self)
+        revm::context::Transaction::max_balance_spending(self)
     }
 
     fn effective_balance_spending(
@@ -237,7 +242,7 @@ where
         base_fee: u128,
         blob_price: u128,
     ) -> Result<U256, InvalidTransaction> {
-        Transaction::effective_balance_spending(self, base_fee, blob_price)
+        revm::context::Transaction::effective_balance_spending(self, base_fee, blob_price)
     }
 }
 
@@ -449,15 +454,14 @@ pub struct EvmInternals<'a> {
 
 impl<'a> EvmInternals<'a> {
     /// Creates a new [`EvmInternals`] instance.
-    pub fn new<T, TX>(
+    pub fn new<T>(
         journal: &'a mut T,
         block_env: &'a dyn Block,
         cfg_env: &'a impl Cfg,
-        tx_env: &'a TX,
+        tx_env: &'a dyn TransactionTr,
     ) -> Self
     where
         T: JournalTr<Database: Database> + Debug,
-        TX: Transaction,
     {
         Self {
             internals: Box::new(EvmInternalsImpl(journal)),
