@@ -1,13 +1,13 @@
 //! Helpers for dealing with Precompiles.
 
 use crate::{Database, EvmInternals};
-use alloc::{borrow::Cow, boxed::Box, string::String, sync::Arc};
+use alloc::{borrow::Cow, boxed::Box, string::String, sync::Arc, vec::Vec};
 use alloy_consensus::transaction::Either;
 use alloy_primitives::{
     map::{AddressMap, AddressSet},
     Address, Bytes, U256,
 };
-use core::fmt::Debug;
+use core::fmt::{self, Debug, Display};
 use revm::{
     context::{ContextTr, LocalContextTr},
     handler::{EthPrecompiles, PrecompileProvider},
@@ -15,6 +15,15 @@ use revm::{
     precompile::{PrecompileError, PrecompileFn, PrecompileId, PrecompileResult, Precompiles},
     Context, Journal,
 };
+
+/// Returns whether the given [`PrecompileId`] supports caching.
+///
+/// This returns `false` for precompiles where the cost of computing a cache key (hashing the
+/// input) is comparable to just re-executing the precompile (e.g., the identity precompile which
+/// simply copies input to output).
+const fn precompile_id_supports_caching(id: &PrecompileId) -> bool {
+    !matches!(id, PrecompileId::Identity)
+}
 
 /// A mapping of precompile contracts that can be either static (builtin) or dynamic.
 ///
@@ -257,6 +266,97 @@ impl PrecompilesMap {
         self
     }
 
+    /// Moves precompiles from source addresses to destination addresses.
+    ///
+    /// For each `(source, dest)` pair in the iterator:
+    /// - If `source == dest`, the pair is skipped (no-op).
+    /// - If the source address is not a precompile, returns an error.
+    /// - Otherwise, the precompile is removed from the source address and installed at the
+    ///   destination address.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`MovePrecompileError::NotAPrecompile`] if any source address does not have a
+    /// precompile installed.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// // Move ECRECOVER from 0x01 to a custom address
+    /// let moves = [(
+    ///     address!("0x0000000000000000000000000000000000000001"),
+    ///     address!("0x0000000000000000000000000000000000000100"),
+    /// )];
+    /// precompiles.move_precompiles(moves)?;
+    /// ```
+    pub fn move_precompiles<I>(&mut self, moves: I) -> Result<(), MovePrecompileError>
+    where
+        I: IntoIterator<Item = (Address, Address)>,
+    {
+        let moves: Vec<_> = moves.into_iter().filter(|(src, dest)| src != dest).collect();
+
+        if moves.is_empty() {
+            return Ok(());
+        }
+
+        // Validate all source addresses are precompiles before making any changes
+        for (source, _dest) in &moves {
+            if self.get(source).is_none() {
+                return Err(MovePrecompileError::NotAPrecompile(*source));
+            }
+        }
+
+        // Extract precompiles from source addresses
+        let mut extracted: Vec<(Address, DynPrecompile)> = Vec::with_capacity(moves.len());
+
+        for (source, dest) in moves {
+            let mut found_precompile: Option<DynPrecompile> = None;
+            self.apply_precompile(&source, |existing| {
+                found_precompile = existing;
+                None
+            });
+
+            if let Some(precompile) = found_precompile {
+                extracted.push((dest, precompile));
+            }
+        }
+
+        // Install precompiles at destination addresses
+        for (dest, precompile) in extracted {
+            self.apply_precompile(&dest, |_| Some(precompile));
+        }
+
+        Ok(())
+    }
+
+    /// Builder-style method that moves precompiles from source addresses to destination addresses.
+    ///
+    /// This is a consuming version of [`move_precompiles`](Self::move_precompiles) that returns
+    /// `Self` on success.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`MovePrecompileError::NotAPrecompile`] if any source address does not have a
+    /// precompile installed.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let moves = [(
+    ///     address!("0x0000000000000000000000000000000000000001"),
+    ///     address!("0x0000000000000000000000000000000000000100"),
+    /// )];
+    /// let map = PrecompilesMap::new(precompiles_cow)
+    ///     .with_moved_precompiles(moves)?;
+    /// ```
+    pub fn with_moved_precompiles<I>(mut self, moves: I) -> Result<Self, MovePrecompileError>
+    where
+        I: IntoIterator<Item = (Address, Address)>,
+    {
+        self.move_precompiles(moves)?;
+        Ok(self)
+    }
+
     /// Sets a dynamic precompile lookup function that is called for addresses not found
     /// in the static precompile map.
     ///
@@ -465,16 +565,21 @@ where
             CallInput::Bytes(bytes) => bytes.as_ref(),
         };
 
-        let precompile_result = precompile.call(PrecompileInput {
-            data: input_bytes,
-            gas: inputs.gas_limit,
-            caller: inputs.caller,
-            value: inputs.call_value(),
-            is_static: inputs.is_static,
-            internals: EvmInternals::new(journaled_state, block, cfg, tx),
-            target_address: inputs.target_address,
-            bytecode_address: inputs.bytecode_address,
-        });
+        let precompile_result = {
+            let _span =
+                tracing::debug_span!("precompile", name = precompile.precompile_id().name(),)
+                    .entered();
+            precompile.call(PrecompileInput {
+                data: input_bytes,
+                gas: inputs.gas_limit,
+                caller: inputs.caller,
+                value: inputs.call_value(),
+                is_static: inputs.is_static,
+                internals: EvmInternals::new(journaled_state, block, cfg, tx),
+                target_address: inputs.target_address,
+                bytecode_address: inputs.bytecode_address,
+            })
+        };
 
         match precompile_result {
             Ok(output) => {
@@ -711,6 +816,10 @@ where
     fn call(&self, input: PrecompileInput<'_>) -> PrecompileResult {
         self.1(input)
     }
+
+    fn supports_caching(&self) -> bool {
+        precompile_id_supports_caching(&self.0)
+    }
 }
 
 impl<F> Precompile for (&PrecompileId, F)
@@ -724,6 +833,10 @@ where
     fn call(&self, input: PrecompileInput<'_>) -> PrecompileResult {
         self.1(input)
     }
+
+    fn supports_caching(&self) -> bool {
+        precompile_id_supports_caching(self.0)
+    }
 }
 
 impl Precompile for revm::precompile::Precompile {
@@ -736,7 +849,7 @@ impl Precompile for revm::precompile::Precompile {
     }
 
     fn supports_caching(&self) -> bool {
-        !matches!(self.id(), PrecompileId::Identity)
+        precompile_id_supports_caching(self.id())
     }
 }
 
@@ -847,6 +960,25 @@ where
     }
 }
 
+/// Error that can occur when moving precompiles.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum MovePrecompileError {
+    /// The source address is not a precompile.
+    NotAPrecompile(Address),
+}
+
+impl Display for MovePrecompileError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::NotAPrecompile(addr) => {
+                write!(f, "source address {addr} is not a precompile")
+            }
+        }
+    }
+}
+
+impl core::error::Error for MovePrecompileError {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -856,11 +988,12 @@ mod tests {
         context::Block,
         database::EmptyDB,
         precompile::{PrecompileId, PrecompileOutput},
+        primitives::hardfork::SpecId,
     };
 
     #[test]
     fn test_map_precompile() {
-        let eth_precompiles = EthPrecompiles::default();
+        let eth_precompiles = EthPrecompiles::new(SpecId::default());
         let mut spec_precompiles = PrecompilesMap::from(eth_precompiles);
 
         let mut ctx = EthEvmContext::new(EmptyDB::default(), Default::default());
@@ -1004,7 +1137,7 @@ mod tests {
 
     #[test]
     fn test_precompile_lookup() {
-        let eth_precompiles = EthPrecompiles::default();
+        let eth_precompiles = EthPrecompiles::new(SpecId::default());
         let mut spec_precompiles = PrecompilesMap::from(eth_precompiles);
 
         let mut ctx = EthEvmContext::new(EmptyDB::default(), Default::default());
@@ -1061,7 +1194,7 @@ mod tests {
 
     #[test]
     fn test_get_precompile() {
-        let eth_precompiles = EthPrecompiles::default();
+        let eth_precompiles = EthPrecompiles::new(SpecId::default());
         let spec_precompiles = PrecompilesMap::from(eth_precompiles);
 
         let mut ctx = EthEvmContext::new(EmptyDB::default(), Default::default());
@@ -1120,5 +1253,102 @@ mod tests {
             result.bytes, test_input,
             "Identity precompile should return the input data after conversion to dynamic"
         );
+    }
+
+    #[test]
+    fn test_move_precompiles() {
+        let eth_precompiles = EthPrecompiles::new(SpecId::default());
+        let mut spec_precompiles = PrecompilesMap::from(eth_precompiles);
+
+        let mut ctx = EthEvmContext::new(EmptyDB::default(), Default::default());
+
+        // Identity precompile at address 0x04
+        let identity_address = address!("0x0000000000000000000000000000000000000004");
+        let new_address = address!("0x0000000000000000000000000000000000001000");
+        let test_input = Bytes::from_static(b"test data");
+        let gas_limit = 1000;
+
+        // Verify the precompile exists at original address
+        assert!(spec_precompiles.get(&identity_address).is_some());
+        assert!(spec_precompiles.get(&new_address).is_none());
+
+        // Move the precompile
+        spec_precompiles.move_precompiles([(identity_address, new_address)]).unwrap();
+
+        // Verify the precompile moved
+        assert!(
+            spec_precompiles.get(&identity_address).is_none(),
+            "Precompile should no longer exist at original address"
+        );
+        assert!(
+            spec_precompiles.get(&new_address).is_some(),
+            "Precompile should exist at new address"
+        );
+
+        // Verify the moved precompile works correctly
+        let result = spec_precompiles
+            .get(&new_address)
+            .unwrap()
+            .call(PrecompileInput {
+                data: &test_input,
+                gas: gas_limit,
+                caller: Address::ZERO,
+                value: U256::ZERO,
+                is_static: false,
+                internals: EvmInternals::from_context(&mut ctx),
+                target_address: new_address,
+                bytecode_address: new_address,
+            })
+            .unwrap();
+        assert_eq!(result.bytes, test_input, "Moved identity precompile should return input data");
+    }
+
+    #[test]
+    fn test_move_precompiles_not_a_precompile() {
+        let eth_precompiles = EthPrecompiles::new(SpecId::default());
+        let mut spec_precompiles = PrecompilesMap::from(eth_precompiles);
+
+        let non_precompile = address!("0x0000000000000000000000000000000000000099");
+        let dest = address!("0x0000000000000000000000000000000000001000");
+
+        let result = spec_precompiles.move_precompiles([(non_precompile, dest)]);
+        assert_eq!(result, Err(MovePrecompileError::NotAPrecompile(non_precompile)));
+    }
+
+    #[test]
+    fn test_move_precompiles_same_address_noop() {
+        let eth_precompiles = EthPrecompiles::new(SpecId::default());
+        let mut spec_precompiles = PrecompilesMap::from(eth_precompiles);
+
+        let identity_address = address!("0x0000000000000000000000000000000000000004");
+
+        // Moving to same address should be a no-op and not error
+        spec_precompiles.move_precompiles([(identity_address, identity_address)]).unwrap();
+
+        // Precompile should still exist
+        assert!(spec_precompiles.get(&identity_address).is_some());
+    }
+
+    #[test]
+    fn test_move_precompiles_multiple() {
+        let eth_precompiles = EthPrecompiles::new(SpecId::default());
+        let mut spec_precompiles = PrecompilesMap::from(eth_precompiles);
+
+        let ecrecover = address!("0x0000000000000000000000000000000000000001");
+        let sha256 = address!("0x0000000000000000000000000000000000000002");
+        let new_ecrecover = address!("0x0000000000000000000000000000000000001001");
+        let new_sha256 = address!("0x0000000000000000000000000000000000001002");
+
+        spec_precompiles
+            .move_precompiles([(ecrecover, new_ecrecover), (sha256, new_sha256)])
+            .unwrap();
+
+        // Original addresses should be empty
+        assert!(spec_precompiles.get(&ecrecover).is_none());
+        assert!(spec_precompiles.get(&sha256).is_none());
+
+        // New addresses should have the precompiles
+        assert!(spec_precompiles.get(&new_ecrecover).is_some());
+        assert!(spec_precompiles.get(&new_sha256).is_some());
     }
 }
